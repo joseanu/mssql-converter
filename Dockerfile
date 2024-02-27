@@ -4,7 +4,7 @@ FROM mcr.microsoft.com/azure-sql-edge:latest
 USER root
 
 RUN apt-get -y update && \
-    apt-get install -y npm unixodbc unixodbc-dev
+    apt-get install -y npm unixodbc-dev
 
 USER mssql
 

@@ -1,0 +1,5 @@
+**/node_modules/
+eslint.config.js
+README.md
+.git
+.nvmrc

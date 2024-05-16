@@ -26,3 +26,8 @@ El servidor Express se ejecutará en `http://localhost:8080`.
 - POST `/bak`: Un endpoint de carga de archivos que recibe un archivo .bak, lo restaura a una base de datos del servidor SQL temporal, extrae datos de una tabla específica y devuelve esos datos al cliente, luego elimina la base de datos temporal y el archivo en el servidor.
   - Este endpoint espera un cuerpo de solicitud `multipart/form-data`, con el archivo adjunto en un campo `bak`.
 - GET `/upload-form`: Un endpoint que devuelve un formulario HTML que los visitantes pueden usar para cargar un archivo. Envía el archivo al endpoint `/bak`.
+
+
+# Workaround to disable mssql telemetry
+echo "127.0.0.1 settings-win.data.microsoft.com" >> /etc/hosts
+echo "127.0.0.1 vortex.data.microsoft.com" >> /etc/hosts

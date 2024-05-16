@@ -260,7 +260,7 @@ app.post("/sqlite", upload.single("bak"), async (req, res) => {
 });
 
 // Middleware de manejo de errores
-app.use((err, req, res) => {
+app.use((err, req, res, next) => {
   if (err instanceof multer.MulterError && err.code === 'LIMIT_FILE_SIZE') {
     res.status(413).send("File too large. Maximum allowed size is 40 MB.");
   } else {

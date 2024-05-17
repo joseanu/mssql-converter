@@ -219,6 +219,8 @@ async function toJson(pool) {
         return filteredRow;
       });
     }
+
+    return jsonObj;
   } catch (error) {
     console.error("Error during JSON export process:", error);
     throw error;

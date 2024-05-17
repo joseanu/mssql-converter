@@ -12,19 +12,20 @@ const app = express();
 app.use(compression());
 
 app.use(cors({
-  origin: function(origin, callback) {
-    // Permitir solicitudes sin origen (como curl)
-    // if (!origin) return callback(null, true);
-    if (
-      origin.endsWith('.replit.dev') ||
-      origin.endsWith('.presupuestos.red')
-    ) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  }
-}));
+    origin: function (origin, callback) {
+      // Permitir solicitudes sin origen (como curl)
+      if (!origin) return callback(null, true);
+      if (
+        origin.endsWith(".replit.dev") ||
+        origin.endsWith(".presupuestos.red")
+      ) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
+  })
+);
 
 const sqlConfig = {
   user: "sa",
@@ -126,14 +127,15 @@ async function restoreDatabase(pool, file, dbName) {
 }
 
 // Función para convertir la base de datos a sqlite
-async function exportToSqlite(pool) {
+async function toSqlite(pool) {
+  console.log("Converting to SQLite.");
   const sqliteDB = new sqlite3(":memory:");
   try {
     let tables = await pool.request().query(`
-    SELECT TABLE_NAME 
-    FROM INFORMATION_SCHEMA.TABLES 
-    WHERE TABLE_TYPE = 'BASE TABLE'
-  `);
+      SELECT TABLE_NAME 
+      FROM INFORMATION_SCHEMA.TABLES 
+      WHERE TABLE_TYPE = 'BASE TABLE'
+    `);
 
     for (const table of tables.recordset) {
       const tableName = table.TABLE_NAME;
@@ -158,23 +160,26 @@ async function exportToSqlite(pool) {
 
       sqliteDB.exec(createTableStatement);
 
-      const insertColumns = createTableQuery.recordset.map(column => column.COLUMN_NAME);
+      const insertColumns = createTableQuery.recordset.map(
+        (column) => column.COLUMN_NAME
+      );
       const insertStatement = sqliteDB.prepare(
-        `INSERT INTO ${tableName} (${insertColumns.join(", ")}) VALUES (${insertColumns.map(() => "?").join(",")})`
+        `INSERT INTO ${tableName} (${insertColumns.join(
+          ", "
+        )}) VALUES (${insertColumns.map(() => "?").join(",")})`
       );
 
       const selectQuery = `SELECT * FROM ${tableName}`;
       const result = await pool.request().query(selectQuery);
       for (const row of result.recordset) {
-        const values = insertColumns.map(
-          (column) => convertToSQLiteCompatibleType(row[column])
+        const values = insertColumns.map((column) =>
+          convertToSQLiteCompatibleType(row[column])
         );
         insertStatement.run(values);
       }
     }
     // Serializar la base de datos en memoria y enviarla como respuesta
     return sqliteDB.serialize();
-
   } catch (error) {
     console.error("Error during SQLite export process:", error);
     throw error;
@@ -183,6 +188,40 @@ async function exportToSqlite(pool) {
       sqliteDB.close();
       console.log("SQLite database closed successfully.");
     }
+  }
+}
+
+// Función para convertir la base de datos a JSON
+async function toJson(pool) {
+  console.log("Converting to JSON.");
+  try {
+    let tables = await pool.request().query(`
+      SELECT TABLE_NAME 
+      FROM INFORMATION_SCHEMA.TABLES 
+      WHERE TABLE_TYPE = 'BASE TABLE'
+    `);
+
+    let jsonObj = {};
+
+    for (const table of tables.recordset) {
+      const tableName = table.TABLE_NAME;
+      const query = `SELECT * FROM ${tableName};`;
+      const result = await pool.request().query(query);
+      jsonObj[tableName] = result.recordset.map(row => {
+        let filteredRow = {};
+        for (let key in row) {
+          if (typeof row[key] === "string" && row[key].length > 1500) {
+            filteredRow[key] = "";
+          } else {
+            filteredRow[key] = row[key];
+          }
+        }
+        return filteredRow;
+      });
+    }
+  } catch (error) {
+    console.error("Error during JSON export process:", error);
+    throw error;
   }
 }
 
@@ -210,7 +249,11 @@ function mapDataType(sqlType) {
 function convertToSQLiteCompatibleType(value) {
   if (value === null || value === undefined) {
     return null;
-  } else if (typeof value === 'number' || typeof value === 'string' || typeof value === 'bigint') {
+  } else if (
+    typeof value === "number" ||
+    typeof value === "string" ||
+    typeof value === "bigint"
+  ) {
     return value;
   } else if (Buffer.isBuffer(value)) {
     return value;
@@ -222,7 +265,9 @@ function convertToSQLiteCompatibleType(value) {
 // Función para eliminar la base de datos
 async function dropDatabase(pool, dbName) {
   try {
-    await pool.request().query(`ALTER DATABASE ${dbName} SET OFFLINE WITH ROLLBACK IMMEDIATE;`);
+    await pool
+      .request()
+      .query(`ALTER DATABASE ${dbName} SET OFFLINE WITH ROLLBACK IMMEDIATE;`);
     await pool.request().query(`ALTER DATABASE ${dbName} SET ONLINE;`);
     await pool.request().query(`DROP DATABASE ${dbName};`);
     console.log("Temporary database dropped.");
@@ -249,7 +294,7 @@ app.post("/sqlite", upload.single("bak"), async (req, res) => {
 
     await restoreDatabase(pool, file, dbName);
     await pool.request().query(`USE ${dbName};`);
-    const data = await exportToSqlite(pool);
+    const data = await toSqlite(pool);
 
     res.setHeader("Content-Type", "application/octet-stream");
     res.setHeader(
@@ -257,10 +302,46 @@ app.post("/sqlite", upload.single("bak"), async (req, res) => {
       `attachment; filename="${dbName}.sqlite"`
     );
     res.status(200).send(data);
-
   } catch (error) {
     console.error("Error during the process:", error);
-    res.status(500).send("Failed to complete the operation.");
+    res.status(500).send(error);
+  } finally {
+    await dropDatabase(pool, dbName);
+    if (pool) {
+      await pool.close();
+    }
+    try {
+      fs.unlinkSync(file.path);
+      console.log(".bak file deleted successfully.");
+    } catch (err) {
+      console.error("Failed to delete .bak file:", err);
+    }
+  }
+});
+
+// POST route for file upload, restore .bak file, query data, and clean up
+app.post("/json", upload.single("bak"), async (req, res) => {
+  if (!req.file) {
+    return res.status(400).send("No file uploaded or incorrect file type.");
+  }
+  const file = req.file;
+  const dbName = `DB_${req.fileNameWithoutExtension}`;
+  console.log(`Exporting database to JSON for ${dbName}.`);
+
+  let pool;
+
+  try {
+    pool = await waitForSqlServer(sqlConfig);
+    console.log("SQL Server is up and running.");
+
+    await restoreDatabase(pool, file, dbName);
+    await pool.request().query(`USE ${dbName};`);
+    const data = await toJson(pool);
+
+    res.json(data);
+  } catch (error) {
+    console.error("Error during the process:", error);
+    res.status(500).send(error);
   } finally {
     await dropDatabase(pool, dbName);
     if (pool) {
@@ -277,7 +358,7 @@ app.post("/sqlite", upload.single("bak"), async (req, res) => {
 
 // Middleware de manejo de errores
 app.use((err, req, res, next) => {
-  if (err instanceof multer.MulterError && err.code === 'LIMIT_FILE_SIZE') {
+  if (err instanceof multer.MulterError && err.code === "LIMIT_FILE_SIZE") {
     res.status(413).send("File too large. Maximum allowed size is 40 MB.");
   } else {
     console.error("Error:", err);

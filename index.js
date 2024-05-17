@@ -1,4 +1,5 @@
 import express from "express";
+import cors from "cors";
 import multer from "multer";
 import compression from "compression";
 import sql from "mssql";
@@ -9,6 +10,21 @@ import fs from "fs";
 const app = express();
 
 app.use(compression());
+
+app.use(cors({
+  origin: function(origin, callback) {
+    // Permitir solicitudes sin origen (como curl)
+    // if (!origin) return callback(null, true);
+    if (
+      origin.endsWith('.replit.dev') ||
+      origin.endsWith('.presupuestos.red')
+    ) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  }
+}));
 
 const sqlConfig = {
   user: "sa",

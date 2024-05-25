@@ -210,7 +210,9 @@ async function toJson(pool) {
       jsonObj[tableName] = result.recordset.map(row => {
         let filteredRow = {};
         for (let key in row) {
-          if (typeof row[key] === "string" && row[key].length > 1500) {
+          if (Buffer.isBuffer(row[key])) {
+            filteredRow[key] = "";
+          } else if (typeof row[key] === "string" && row[key].length > 1500) {
             filteredRow[key] = "";
           } else {
             filteredRow[key] = row[key];

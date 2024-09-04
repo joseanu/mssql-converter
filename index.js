@@ -16,8 +16,8 @@ app.use(cors({
       // Permitir solicitudes sin origen (como curl)
       if (!origin) return callback(null, true);
       if (
-        origin.endsWith(".replit.dev") ||
-        origin.endsWith(".presupuestos.red")
+        origin.endsWith("replit.dev") ||
+        origin.endsWith("presupuestos.red")
       ) {
         callback(null, true);
       } else {

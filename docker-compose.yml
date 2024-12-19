@@ -9,7 +9,6 @@ services:
       MSSQL_TELEMETRY_ENABLED: ${MSSQL_TELEMETRY_ENABLED}
       MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD}
     volumes:
-      - mssql-data:/var/opt/mssql/data
       - uploads:/usr/src/app/uploads
     ports:
       - "1433:1433"
@@ -27,5 +26,4 @@ services:
       - mssql
 
 volumes:
-  mssql-data:
   uploads:

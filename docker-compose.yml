@@ -5,6 +5,8 @@ services:
     image: mcr.microsoft.com/azure-sql-edge:latest
     environment:
       ACCEPT_EULA: Y
+      MSSQL_PID: ${MSSQL_PID}
+      MSSQL_TELEMETRY_ENABLED: ${MSSQL_TELEMETRY_ENABLED}
       MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD}
     volumes:
       - mssql-data:/var/opt/mssql/data

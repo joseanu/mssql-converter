@@ -11,26 +11,26 @@ const app = express();
 
 app.use(compression());
 
-app.use(cors({
+app.use(
+  cors({
     origin: function (origin, callback) {
       // Permitir solicitudes sin origen (como curl)
-      if (!origin) return callback(null, true);
       if (
-        origin.endsWith("replit.dev") ||
-        origin.endsWith("presupuestos.red")
+        origin &&
+        (origin.endsWith("replit.dev") || origin.endsWith("presupuestos.red"))
       ) {
         callback(null, true);
       } else {
         callback(new Error("Not allowed by CORS"));
       }
     },
-  })
+  }),
 );
 
 const sqlConfig = {
   user: "sa",
   password: process.env.MSSQL_SA_PASSWORD,
-  server: "localhost",
+  server: process.env.MSSQL_HOST || "mssql",
   parseJSON: true,
   pool: {
     max: 10,
@@ -38,8 +38,8 @@ const sqlConfig = {
     idleTimeoutMillis: 30000,
   },
   options: {
-    encrypt: true, // for azure
-    trustServerCertificate: true, // true for local dev / self-signed certs
+    encrypt: true,
+    trustServerCertificate: true,
   },
 };
 
@@ -85,7 +85,7 @@ const waitForSqlServer = async (config) => {
         if (currentTime - startTime > 60000) {
           // 60 seconds
           throw new Error(
-            "Connection Timeout: Failed to connect to SQL Server within 60 seconds."
+            "Connection Timeout: Failed to connect to SQL Server within 60 seconds.",
           );
         }
         if (error instanceof sql.ConnectionError) {
@@ -118,10 +118,10 @@ async function restoreDatabase(pool, file, dbName) {
 
   await pool.request().query(
     `RESTORE DATABASE ${dbName} FROM DISK = '${path.resolve(
-      file.path
+      file.path,
     )}' WITH FILE = 1, 
     MOVE '${logicalNameMDF}' TO '/var/opt/mssql/data/${dbName}.mdf', 
-    MOVE '${logicalNameLDF}' TO '/var/opt/mssql/data/${dbName}_log.ldf';`
+    MOVE '${logicalNameLDF}' TO '/var/opt/mssql/data/${dbName}_log.ldf';`,
   );
   console.log("Database restored successfully.");
 }
@@ -149,7 +149,7 @@ async function toSqlite(pool) {
       let createTableStatement = `CREATE TABLE ${tableName} (`;
       const columnDefinitions = createTableQuery.recordset.map((column) => {
         let columnDefinition = `${column.COLUMN_NAME} ${mapDataType(
-          column.DATA_TYPE
+          column.DATA_TYPE,
         )}`;
         if (column.IS_NULLABLE === "NO") {
           columnDefinition += " NOT NULL";
@@ -161,19 +161,19 @@ async function toSqlite(pool) {
       sqliteDB.exec(createTableStatement);
 
       const insertColumns = createTableQuery.recordset.map(
-        (column) => column.COLUMN_NAME
+        (column) => column.COLUMN_NAME,
       );
       const insertStatement = sqliteDB.prepare(
         `INSERT INTO ${tableName} (${insertColumns.join(
-          ", "
-        )}) VALUES (${insertColumns.map(() => "?").join(",")})`
+          ", ",
+        )}) VALUES (${insertColumns.map(() => "?").join(",")})`,
       );
 
       const selectQuery = `SELECT * FROM ${tableName}`;
       const result = await pool.request().query(selectQuery);
       for (const row of result.recordset) {
         const values = insertColumns.map((column) =>
-          convertToSQLiteCompatibleType(row[column])
+          convertToSQLiteCompatibleType(row[column]),
         );
         insertStatement.run(values);
       }
@@ -207,7 +207,7 @@ async function toJson(pool) {
       const tableName = table.TABLE_NAME;
       const query = `SELECT * FROM ${tableName};`;
       const result = await pool.request().query(query);
-      jsonObj[tableName] = result.recordset.map(row => {
+      jsonObj[tableName] = result.recordset.map((row) => {
         let filteredRow = {};
         for (let key in row) {
           if (Buffer.isBuffer(row[key])) {
@@ -303,7 +303,7 @@ app.post("/sqlite", upload.single("bak"), async (req, res) => {
     res.setHeader("Content-Type", "application/octet-stream");
     res.setHeader(
       "Content-Disposition",
-      `attachment; filename="${dbName}.sqlite"`
+      `attachment; filename="${dbName}.sqlite"`,
     );
     res.status(200).send(data);
   } catch (error) {

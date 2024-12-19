@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  mssql:
+    image: mcr.microsoft.com/azure-sql-edge:latest
+    environment:
+      ACCEPT_EULA: Y
+      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD}
+    volumes:
+      - mssql-data:/var/opt/mssql/data
+      - uploads:/usr/src/app/uploads
+    ports:
+      - "1433:1433"
+
+  app:
+    build: .
+    environment:
+      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD}
+      MSSQL_HOST: mssql
+    volumes:
+      - uploads:/usr/src/app/uploads
+    ports:
+      - "8080:8080"
+    depends_on:
+      - mssql
+
+volumes:
+  mssql-data:
+  uploads:

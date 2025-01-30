@@ -13,8 +13,6 @@ services:
       - uploads:/usr/src/app/uploads
     ports:
       - "1433:1433"
-    command: >
-      /bin/sh -c "chown -R 10001:0 /var/opt/mssql && chmod -R 770 /var/opt/mssql && /opt/mssql/bin/sqlservr"
 
   app:
     build: .

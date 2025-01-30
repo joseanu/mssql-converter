@@ -16,6 +16,7 @@ services:
   app:
     build: .
     environment:
+      PORT: ${PORT}
       MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD}
       MSSQL_HOST: mssql
     volumes:

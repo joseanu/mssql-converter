@@ -22,7 +22,7 @@ services:
     volumes:
       - uploads:/usr/src/app/uploads
     ports:
-      - "8080:8080"
+      - ${PORT}
     depends_on:
       - mssql
 

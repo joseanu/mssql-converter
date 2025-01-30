@@ -388,6 +388,8 @@ app.get("/", (req, res) => {
   res.send("RΞD Consultores");
 });
 
-app.listen(8080, () => {
-  console.log("Express server initialized");
+const PORT = process.env.PORT || 8086;
+
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`Server is running on port ${PORT}`);
 });

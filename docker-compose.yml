@@ -3,6 +3,7 @@ version: '3.8'
 services:
   mssql:
     image: mcr.microsoft.com/azure-sql-edge:latest
+    user: "10001:0"
     environment:
       ACCEPT_EULA: Y
       MSSQL_PID: ${MSSQL_PID}
